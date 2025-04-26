@@ -16,4 +16,8 @@ A simple test module with parameter, passing arguments to module
   ~~~
   sudo rmmod test-param
   ~~~
+- Viewing the module parameter value passed
+  ~~~
+  sudo cat /sys/module/test_param/parameters/debug
+  ~~~
 
