@@ -2,17 +2,21 @@
 #include<linux/cdev.h>
 #include<linux/fs.h>
 #include<linux/uaccess.h>
+#include<linux/device.h>
 
 
 //Define Macros
 
-#define DRIVER_NAME "mychar"
+#define DEVICE_NAME "mychar"
 #define BUFFER_SIZE 100
+#define CLASS_NAME "myclass"
 
 
 static dev_t dev;
 static struct cdev my_cdev;
 static char kernel_buffer[BUFFER_SIZE];
+static struct class *my_class;
+static struct device *my_device;
 
 // Open function
 static int my_open(struct inode *inode, struct file *file) {
@@ -63,7 +67,7 @@ static struct file_operations fops = {
 // Module Init
 static int __init mychar_init(void) {
     // Allocate device number
-    alloc_chrdev_region(&dev, 0, 1, DRIVER_NAME);
+    alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME);
     pr_info("mychar: Major = %d Minor = %d\n", MAJOR(dev), MINOR(dev));
 
     // Initialize cdev
@@ -72,11 +76,17 @@ static int __init mychar_init(void) {
     // Add cdev
     cdev_add(&my_cdev, dev, 1);
 
+    my_class = class_create(THIS_MODULE, CLASS_NAME);
+    my_device = device_create(my_class, NULL, dev, NULL, DEVICE_NAME);
+
     return 0;
 }
 
 // Module Exit
 static void __exit mychar_exit(void) {
+    device_destroy(my_class, dev);
+    class_unregister(my_class);
+    class_destroy(my_class);
     cdev_del(&my_cdev);               // Delete character device
     unregister_chrdev_region(dev, 1);  // Free major/minor number
     pr_info("mychar: Module unloaded\n");
