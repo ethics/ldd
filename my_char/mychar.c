@@ -3,6 +3,7 @@
 #include<linux/fs.h>
 #include<linux/uaccess.h>
 #include<linux/device.h>
+#include<linux/ioctl.h>
 
 
 //Define Macros
@@ -11,12 +12,18 @@
 #define BUFFER_SIZE 100
 #define CLASS_NAME "myclass"
 
+#define MY_IOCTL_MAGIC 'x'
+#define IOCTL_RESET _IO(MY_IOCTL_MAGIC, 0)
+#define IOCTL_GET_STATUS _IOR(MY_IOCTL_MAGIC, 1, int)
+#define IOCTL_SET_STATUS _IOW(MY_IOCTL_MAGIC, 2, int)
 
 static dev_t dev;
 static struct cdev my_cdev;
 static char kernel_buffer[BUFFER_SIZE];
 static struct class *my_class;
 static struct device *my_device;
+static int device_status = 0;
+
 
 // Open function
 static int my_open(struct inode *inode, struct file *file) {
@@ -55,6 +62,31 @@ static int my_release(struct inode *inode, struct file *file) {
     return 0;
 }
 
+long my_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    switch (cmd) {
+        case IOCTL_RESET:
+            device_status = 0;
+            pr_info("IOCTL: Device reset\n");
+            break;
+
+        case IOCTL_GET_STATUS:
+            if (copy_to_user((int __user *)arg, &device_status, sizeof(device_status)))
+                return -EFAULT;
+            pr_info("IOCTL: Get status = %d\n", device_status);
+            break;
+
+        case IOCTL_SET_STATUS:
+            if (copy_from_user(&device_status, (int __user *)arg, sizeof(device_status)))
+                return -EFAULT;
+            pr_info("IOCTL: Set status = %d\n", device_status);
+            break;
+
+        default:
+            return -EINVAL;
+    }
+    return 0;
+}
 // File operations structure
 static struct file_operations fops = {
     .owner = THIS_MODULE,
@@ -62,6 +94,7 @@ static struct file_operations fops = {
     .read = my_read,
     .write = my_write,
     .release = my_release,
+    .unlocked_ioctl = my_ioctl
 };
 
 // Module Init
